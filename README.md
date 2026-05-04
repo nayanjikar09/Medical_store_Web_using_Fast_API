@@ -25,3 +25,14 @@ A full‑stack web application for a generic medical store with bilingual suppor
 | Templating  | Jinja2                             |
 
 ## 📁 Project Structure
+medical-store/
+├── main.py # FastAPI application
+├── requirements.txt # Python dependencies
+├── database.db # SQLite database (auto‑generated)
+├── static/
+│ ├── style.css # Custom styles & carousel transitions
+│ └── script.js # Frontend logic, language, search, order modal
+├── templates/
+│ ├── index.html # Customer facing page (navbar, carousel, sections)
+│ └── admin.html # Admin panel (login, medicine & gallery management)
+└── uploads/gallery/ # Uploaded gallery images (auto‑created)
