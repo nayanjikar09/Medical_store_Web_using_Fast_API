@@ -1,0 +1,33 @@
+/* Carousel transitions */
+.carousel-slide {
+    transition: opacity 0.7s ease-in-out;
+}
+
+/* Medicine cards */
+.medicine-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Navbar active link highlight (optional) */
+nav a.active {
+    border-bottom: 2px solid white;
+}
+
+/* Custom green theme */
+.bg-medical-green {
+    background-color: #2e7d32;
+}
+.text-medical-green {
+    color: #2e7d32;
+}
+.hover\:bg-medical-green-dark:hover {
+    background-color: #1b5e20;
+}
+html {
+    scroll-behavior: smooth;
+}

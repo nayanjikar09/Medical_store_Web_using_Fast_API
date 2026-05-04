@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Medical Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-xl p-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+            
+            <!-- Login Section -->
+            <div id="loginSection" class="max-w-md mx-auto">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Admin Login</h2>
+                    <input type="password" id="adminPassword" placeholder="Enter Admin Password" class="w-full px-3 py-2 border rounded mb-4">
+                    <button onclick="adminLogin()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Login</button>
+                </div>
+            </div>
+            
+            <!-- Admin Content (Hidden until login) -->
+            <div id="adminContent" class="hidden">
+                <div class="flex gap-4 mb-6">
+                    <button onclick="showAdminTab('medicines')" id="adminMedicinesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Manage Medicines</button>
+                    <button onclick="showAdminTab('gallery')" id="adminGalleryBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg">Manage Gallery</button>
+                </div>
+                
+                <!-- Medicines Management -->
+                <div id="medicinesAdminTab">
+                    <div class="mb-6">
+                        <button onclick="showAddMedicineForm()" class="bg-green-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-plus"></i> Add New Medicine</button>
+                    </div>
+                    <div id="medicinesTable" class="overflow-x-auto"></div>
+                    
+                    <!-- Add/Edit Form Modal -->
+                    <div id="medicineFormModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                            <h3 id="formTitle" class="text-2xl font-bold mb-4">Add Medicine</h3>
+                            <input type="hidden" id="editMedicineId">
+                            <input type="text" id="medName" placeholder="Medicine Name" class="w-full px-3 py-2 border rounded mb-3">
+                            <textarea id="medDescription" placeholder="Description" rows="2" class="w-full px-3 py-2 border rounded mb-3"></textarea>
+                            <input type="number" id="medStock" placeholder="Stock Quantity" class="w-full px-3 py-2 border rounded mb-3">
+                            <input type="number" step="0.01" id="medPrice" placeholder="Price (₹)" class="w-full px-3 py-2 border rounded mb-4">
+                            <div class="flex gap-3">
+                                <button onclick="saveMedicine()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg">Save</button>
+                                <button onclick="closeMedicineForm()" class="flex-1 bg-gray-300 py-2 rounded-lg">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Gallery Management -->
+                <div id="galleryAdminTab" class="hidden">
+                    <div class="mb-6">
+                        <div class="flex gap-3 items-end">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium mb-1">Upload New Image</label>
+                                <input type="file" id="galleryImage" accept="image/*" class="w-full px-3 py-2 border rounded">
+                            </div>
+                            <button onclick="uploadGalleryImage()" class="bg-green-600 text-white px-4 py-2 rounded-lg">Upload</button>
+                        </div>
+                    </div>
+                    <div id="galleryAdminList" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let adminToken = null;
+        
+        async function adminLogin() {
+            const password = document.getElementById('adminPassword').value;
+            const formData = new FormData();
+            formData.append('password', password);
+            
+            try {
+                const response = await fetch('/api/admin/login', { method: 'POST', body: formData });
+                const data = await response.json();
+                if(data.success) {
+                    adminToken = data.token;
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('adminContent').classList.remove('hidden');
+                    loadMedicinesTable();
+                    loadGalleryAdmin();
+                } else {
+                    alert('Invalid password');
+                }
+            } catch(error) {
+                alert('Login failed');
+            }
+        }
+        
+        function showAdminTab(tab) {
+            if(tab === 'medicines') {
+                document.getElementById('medicinesAdminTab').classList.remove('hidden');
+                document.getElementById('galleryAdminTab').classList.add('hidden');
+                document.getElementById('adminMedicinesBtn').classList.add('bg-blue-600');
+                document.getElementById('adminMedicinesBtn').classList.remove('bg-gray-600');
+                document.getElementById('adminGalleryBtn').classList.add('bg-gray-600');
+                document.getElementById('adminGalleryBtn').classList.remove('bg-blue-600');
+                loadMedicinesTable();
+            } else {
+                document.getElementById('medicinesAdminTab').classList.add('hidden');
+                document.getElementById('galleryAdminTab').classList.remove('hidden');
+                document.getElementById('adminGalleryBtn').classList.add('bg-blue-600');
+                document.getElementById('adminGalleryBtn').classList.remove('bg-gray-600');
+                document.getElementById('adminMedicinesBtn').classList.add('bg-gray-600');
+                document.getElementById('adminMedicinesBtn').classList.remove('bg-blue-600');
+                loadGalleryAdmin();
+            }
+        }
+        
+        async function loadMedicinesTable() {
+            const response = await fetch('/api/medicines');
+            const data = await response.json();
+            const tableHtml = `
+                <table class="min-w-full bg-white border">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="px-4 py-2 border">ID</th>
+                            <th class="px-4 py-2 border">Name</th>
+                            <th class="px-4 py-2 border">Description</th>
+                            <th class="px-4 py-2 border">Stock</th>
+                            <th class="px-4 py-2 border">Price</th>
+                            <th class="px-4 py-2 border">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.medicines.map(med => `
+                            <tr>
+                                <td class="px-4 py-2 border">${med.id}</td>
+                                <td class="px-4 py-2 border">${med.name}</td>
+                                <td class="px-4 py-2 border">${med.description || '-'}</td>
+                                <td class="px-4 py-2 border">${med.stock_quantity}</td>
+                                <td class="px-4 py-2 border">₹${med.price}</td>
+                                <td class="px-4 py-2 border">
+                                    <button onclick="editMedicine(${med.id})" class="bg-yellow-500 text-white px-2 py-1 rounded mr-1">Edit</button>
+                                    <button onclick="deleteMedicine(${med.id})" class="bg-red-500 text-white px-2 py-1 rounded">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('medicinesTable').innerHTML = tableHtml;
+        }
+        
+        function showAddMedicineForm() {
+            document.getElementById('formTitle').innerText = 'Add Medicine';
+            document.getElementById('editMedicineId').value = '';
+            document.getElementById('medName').value = '';
+            document.getElementById('medDescription').value = '';
+            document.getElementById('medStock').value = '';
+            document.getElementById('medPrice').value = '';
+            document.getElementById('medicineFormModal').classList.remove('hidden');
+            document.getElementById('medicineFormModal').classList.add('flex');
+        }
+        
+        async function editMedicine(id) {
+            const response = await fetch('/api/medicines');
+            const data = await response.json();
+            const medicine = data.medicines.find(m => m.id === id);
+            if(medicine) {
+                document.getElementById('formTitle').innerText = 'Edit Medicine';
+                document.getElementById('editMedicineId').value = medicine.id;
+                document.getElementById('medName').value = medicine.name;
+                document.getElementById('medDescription').value = medicine.description || '';
+                document.getElementById('medStock').value = medicine.stock_quantity;
+                document.getElementById('medPrice').value = medicine.price;
+                document.getElementById('medicineFormModal').classList.remove('hidden');
+                document.getElementById('medicineFormModal').classList.add('flex');
+            }
+        }
+        
+        async function saveMedicine() {
+            const id = document.getElementById('editMedicineId').value;
+            const name = document.getElementById('medName').value;
+            const description = document.getElementById('medDescription').value;
+            const stock = document.getElementById('medStock').value;
+            const price = document.getElementById('medPrice').value;
+            
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('description', description);
+            formData.append('stock_quantity', stock);
+            formData.append('price', price);
+            formData.append('token', adminToken);
+            
+            let url = '/api/medicines';
+            let method = 'POST';
+            if(id) {
+                url = `/api/medicines/${id}`;
+                method = 'PUT';
+            }
+            
+            const response = await fetch(url, { method, body: formData });
+            if(response.ok) {
+                alert('Medicine saved successfully');
+                closeMedicineForm();
+                loadMedicinesTable();
+            } else {
+                alert('Failed to save medicine');
+            }
+        }
+        
+        // ✅ Fixed: token as query parameter
+        async function deleteMedicine(id) {
+            if(confirm('Are you sure you want to delete this medicine?')) {
+                const response = await fetch(`/api/medicines/${id}?token=${adminToken}`, { method: 'DELETE' });
+                if(response.ok) {
+                    alert('Medicine deleted');
+                    loadMedicinesTable();
+                } else {
+                    const error = await response.json();
+                    alert('Delete failed: ' + (error.detail || 'Unknown error'));
+                }
+            }
+        }
+        
+        function closeMedicineForm() {
+            document.getElementById('medicineFormModal').classList.add('hidden');
+            document.getElementById('medicineFormModal').classList.remove('flex');
+        }
+        
+        async function loadGalleryAdmin() {
+            const response = await fetch('/api/gallery');
+            const data = await response.json();
+            const galleryDiv = document.getElementById('galleryAdminList');
+            galleryDiv.innerHTML = '';
+            
+            data.images.forEach(img => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-lg shadow-md overflow-hidden';
+                card.innerHTML = `
+                    <img src="/${img.filepath}" alt="${img.filename}" class="w-full h-48 object-cover">
+                    <div class="p-3">
+                        <p class="text-sm text-gray-600 truncate">${img.filename}</p>
+                        <button onclick="deleteGalleryImage(${img.id})" class="mt-2 bg-red-500 text-white px-3 py-1 rounded text-sm w-full">Delete</button>
+                    </div>
+                `;
+                galleryDiv.appendChild(card);
+            });
+        }
+        
+        async function uploadGalleryImage() {
+            const fileInput = document.getElementById('galleryImage');
+            const file = fileInput.files[0];
+            if(!file) {
+                alert('Please select an image');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('token', adminToken);
+            
+            const response = await fetch('/api/gallery/upload', { method: 'POST', body: formData });
+            if(response.ok) {
+                alert('Image uploaded successfully');
+                fileInput.value = '';
+                loadGalleryAdmin();
+            } else {
+                alert('Upload failed');
+            }
+        }
+        
+        // ✅ Fixed: token as query parameter for DELETE gallery image
+        async function deleteGalleryImage(id) {
+            if(confirm('Delete this image?')) {
+                const response = await fetch(`/api/gallery/${id}?token=${adminToken}`, { method: 'DELETE' });
+                if(response.ok) {
+                    alert('Image deleted');
+                    loadGalleryAdmin();
+                } else {
+                    const error = await response.json();
+                    alert('Delete failed: ' + (error.detail || 'Unknown error'));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
